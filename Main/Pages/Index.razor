@@ -1,15 +1,49 @@
 ﻿@page "/"
 @using AirRoute.ADSB;
+@using System.Timers;
 @inject RouterManager routerManager;
 
 <PageTitle>Index</PageTitle>
 
-@foreach (var output in routerManager.Outputs)
-{
-    <p>@output</p>
-}
+<table class="table">
+    <thead>
+        <tr>
+            <td>Hostname</td>
+            <td>Port</td>
+            <td>State</td>
+            <td>Controls</td>
+        </tr>
+    </thead>
+    @foreach (var output in routerManager.Outputs)
+    {
+        <tr>
+            <td>@output.Hostname</td>
+            <td>@output.Port</td>
+            <td>@output.State</td>
+            <td>LOL</td>
+        </tr>
+    }
+</table>
+
+<button class="btn btn-danger" @onclick="Add">Add</button>
 
 @code {
+    Timer timer;
 
-    
+    protected override void OnInitialized()
+    {
+        timer = new();
+        timer.Elapsed = RefreshEvent;
+    }
+
+    private void RefreshEvent(object sender)
+    {
+        
+    }
+
+    private void Add()
+    {
+        routerManager.AddOutput("192.168.168.6", 30004);
+    }
+
 }

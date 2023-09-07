@@ -3,14 +3,22 @@ using System.Net.Sockets;
 
 namespace AirRoute.ADSB
 {
+    public enum TcpOutputState
+    {
+        Disconnected,
+        Connected,
+        Reconnecting,
+        Error
+    }
+
     public class TcpOutput : IDisposable
     {
         private readonly ILogger _logger;
         private TcpClient _client;
 
+        public TcpOutputState State { get; private set; }
         public string Hostname { get; }
         public int Port { get; }
-        public bool Reconnecting { get; private set; } = false;
 
         public TcpOutput(ILoggerFactory loggerFactory, string hostname, int port)
         {
@@ -32,17 +40,20 @@ namespace AirRoute.ADSB
             catch (SocketException ex)
             {
                 _logger.LogError("Connection failed");
+                State = TcpOutputState.Error;
                 await ReconnectAsync(stoppingToken);
                 return;
             }
 
             _logger.LogInformation("Connected");
+            State = TcpOutputState.Connected;
         }
 
         public void Disconnect()
         {
             _logger.LogInformation("Disconnected");
             _client.Close();
+            State = TcpOutputState.Disconnected;
         }
 
         public async Task WriteAsync(byte[] buffer, int length, CancellationToken stoppingToken = default)
@@ -54,7 +65,7 @@ namespace AirRoute.ADSB
                     await ReconnectAsync(stoppingToken);
                 }
 
-                if (Reconnecting)
+                if (State == TcpOutputState.Reconnecting)
                 {
                     return;
                 }
@@ -75,12 +86,12 @@ namespace AirRoute.ADSB
 
         private async Task ReconnectAsync(CancellationToken stoppingToken = default)
         {
-            if (Reconnecting)
+            if (State == TcpOutputState.Reconnecting)
             {
                 return;
             }
 
-            Reconnecting = true;
+            State = TcpOutputState.Reconnecting;
             TimeSpan timeout = TimeSpan.FromSeconds(1);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -102,12 +113,13 @@ namespace AirRoute.ADSB
                 catch (SocketException ex)
                 {
                     _logger.LogError("Connection failed");
+                    State = TcpOutputState.Error;
                     await Task.Delay(timeout, stoppingToken);
                 }
             }
 
             _logger.LogInformation("Connected");
-            Reconnecting = false;
+            State = TcpOutputState.Connected;
         }
 
         public void Dispose()
