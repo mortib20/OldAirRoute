@@ -1,0 +1,15 @@
+﻿@page "/"
+@using AirRoute.ADSB;
+@inject RouterManager routerManager;
+
+<PageTitle>Index</PageTitle>
+
+@foreach (var output in routerManager.Outputs)
+{
+    <p>@output</p>
+}
+
+@code {
+
+    
+}

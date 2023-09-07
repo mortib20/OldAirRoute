@@ -1,0 +1,16 @@
+{
+	"Input": {
+		"Address": "0.0.0.0",
+		"Port": 30004
+	},
+	"Outputs": [
+		{
+			"Hostname": "feed.adsb.lol",
+			"Port": 30004
+		},
+		{
+			"Hostname": "feed.adsb.fi",
+			"Port": 30004
+		}
+	]
+}
