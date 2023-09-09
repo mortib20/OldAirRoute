@@ -1,18 +1,15 @@
+# Build
 FROM alpine:latest as build
-
 RUN apk add dotnet7-sdk
-
 WORKDIR /airroute
 COPY . .
-RUN dotnet build -c Release
+RUN dotnet publish -c Release -o /build
 
+# Production
 FROM alpine:latest as production
 
-RUN apk add dotnet7-runtime dotnet7-sdk
+EXPOSE 8080
 
-WORKDIR /airroute
-
-COPY --from=build /airroute .
-#COPY --from=build /airroute/Main/bin/Release/net7.0 /airroute/
-#COPY --from=build /airroute/Main/wwwroot /airroute/Main/wwwroot
-#COPY --from=build /airroute/Main/obj/Release /airroute/Main/obj/Release
+RUN apk add dotnet7-sdk
+WORKDIR /app
+COPY --from=build /build /app
