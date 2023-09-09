@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Net.Sockets;
-using System;
 
 namespace AirRoute.ADSB
 {
@@ -9,8 +8,8 @@ namespace AirRoute.ADSB
     {
         Disconnected,
         Connected,
-        Reconnecting,
-        Error
+        Connecting,
+        Stopped
     }
 
     public enum TcpOutputError
@@ -30,41 +29,99 @@ namespace AirRoute.ADSB
 
     public class TcpOutput : IDisposable
     {
-        private const int MAX_CONNECTION_TRIES = 3;
+        private readonly int MAX_CONNECTION_TRIES = 3;
         private readonly TimeSpan INITIAL_TIMEOUT = TimeSpan.Zero;
         private readonly ILogger _logger;
         private TcpClient _client;
-        private string _statusMessage = "Disconnected";
-        private string _errorMessage = "No Error";
+        private TcpOutputStatus _status = TcpOutputStatus.Disconnected;
+        private TcpOutputError _error = TcpOutputError.NoError;
+        private bool _disposed;
 
-        public TcpOutputStatus Status { get; private set; } = TcpOutputStatus.Disconnected;
-        public TcpOutputError Error { get; private set; } = TcpOutputError.NoError;
-        public bool HasError => Error != TcpOutputError.NoError;
-
-        public string StatusMessage
+        public TcpOutputStatus Status
         {
-            get => _statusMessage;
+            get => _status;
             private set
             {
-                _statusMessage = value;
-                _logger.LogInformation(StatusMessage);
-                Debug.WriteLine(StatusMessage);
-            }
-        }
+                _status = value;
 
-        public string ErrorMessage
-        {
-            get => _errorMessage;
-            private set
-            {
-                _errorMessage = value;
-                if (Error != TcpOutputError.NoError)
+                switch (value)
                 {
-                    _logger.LogError(ErrorMessage);
-                    Debug.WriteLine(ErrorMessage);
+                    case TcpOutputStatus.Disconnected:
+                        StatusMessage = "Disconnected";
+                        break;
+                    case TcpOutputStatus.Connected:
+                        StatusMessage = "Connected";
+                        break;
+                    case TcpOutputStatus.Connecting:
+                        StatusMessage = "Connecting";
+                        break;
+                    case TcpOutputStatus.Stopped:
+                        StatusMessage = "Manual Stopped";
+                        break;
                 }
+
+                _logger.LogInformation(StatusMessage);
             }
         }
+        public TcpOutputError Error
+        {
+            get => _error;
+            private set
+            {
+                _error = value;
+
+                switch (value)
+                {
+                    case TcpOutputError.NoError:
+                        ErrorMessage = "No Error";
+                        break;
+                    case TcpOutputError.UnknownError:
+                        ErrorMessage = "Unknown Error";
+                        break;
+                    case TcpOutputError.HostNotFound:
+                        ErrorMessage = "Host not found";
+                        break;
+                    case TcpOutputError.Timeout:
+                        ErrorMessage = "Connection timed out";
+                        break;
+                    case TcpOutputError.ConnectionRefused:
+                        ErrorMessage = "Connection refused";
+                        break;
+                    case TcpOutputError.ConnectionReset:
+                        ErrorMessage = "Connection reset";
+                        break;
+                    case TcpOutputError.HostUnreachable:
+                        ErrorMessage = "Host is unreachable";
+                        break;
+                    case TcpOutputError.NetworkUnreachable:
+                        ErrorMessage = "Network is unreachable";
+                        break;
+                    case TcpOutputError.InvalidArgument:
+                        ErrorMessage = "Invalid argument used for socket";
+                        break;
+                    case TcpOutputError.AccessDenied:
+                        ErrorMessage = "Access Denied";
+                        break;
+                    case TcpOutputError.IOError:
+                        ErrorMessage = "IO Error";
+                        break;
+                }
+
+                if (Error == TcpOutputError.NoError)
+                {
+                    return;
+                }
+
+                _logger.LogError(ErrorMessage);
+            }
+        }
+        public bool HasError => Error != TcpOutputError.NoError;
+        public bool IsStopped => Status == TcpOutputStatus.Stopped;
+        public bool IsDisconnected => Status != TcpOutputStatus.Disconnected;
+
+        public string StatusMessage { get; private set; } = "";
+
+        public string ErrorMessage { get; private set; } = "";
 
         public string Hostname { get; }
         public int Port { get; }
@@ -75,6 +132,8 @@ namespace AirRoute.ADSB
             Port = port;
             _client = new();
             _logger = loggerFactory.CreateLogger($"{GetType()} {this}");
+            _status = TcpOutputStatus.Disconnected;
+            _error = TcpOutputError.NoError;
         }
 
         /// <summary>
@@ -84,9 +143,9 @@ namespace AirRoute.ADSB
         /// <returns><see cref="true"/> when connected, <see cref="false"/> when connection failed</returns>
         public async Task<bool> ConnectAsync(CancellationToken stoppingToken = default)
         {
-            if (Status == TcpOutputStatus.Reconnecting || Status == TcpOutputStatus.Connected)
+            if (Status == TcpOutputStatus.Connecting || Status == TcpOutputStatus.Connected)
             {
-                return false;
+                return true;
             }
 
             _client = new();
@@ -100,18 +159,18 @@ namespace AirRoute.ADSB
 
                 try
                 {
-                    SetStatus(TcpOutputStatus.Reconnecting, $"{connectionTries}. connection try");
+                    Status = TcpOutputStatus.Connecting;
 
                     await _client.ConnectAsync(Hostname, Port);
 
-                    SetStatus(TcpOutputStatus.Connected, "Connected");
+                    Status = TcpOutputStatus.Connected;
                     return true;
                 }
                 catch (OperationCanceledException) { }
                 catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound)
                 {
-                    SetError(TcpOutputError.HostNotFound, "Unable to find Hostname");
-                    SetStatus(TcpOutputStatus.Disconnected, "Unable to find Hostname");
+                    Error = TcpOutputError.HostNotFound;
+                    Status = TcpOutputStatus.Disconnected;
                     return false;
                 }
                 catch (SocketException ex)
@@ -122,7 +181,8 @@ namespace AirRoute.ADSB
                 }
             }
 
-            SetStatus(TcpOutputStatus.Disconnected, "Max connection tries reached, failed to connect");
+            _logger.LogInformation($"Failed to connect after {connectionTries}");
+            Status = TcpOutputStatus.Disconnected;
             return false;
         }
 
@@ -135,27 +195,58 @@ namespace AirRoute.ADSB
             switch (ex.SocketErrorCode)
             {
                 case SocketError.ConnectionRefused:
-                    SetError(TcpOutputError.ConnectionRefused, "Connection refused");
+                    Error = TcpOutputError.ConnectionRefused;
                     break;
                 case SocketError.ConnectionReset:
-                    SetError(TcpOutputError.ConnectionReset, "Connection reset");
+                    Error = TcpOutputError.ConnectionReset;
                     break;
                 case SocketError.TimedOut:
-                    SetError(TcpOutputError.Timeout, "Connection timeout");
+                    Error = TcpOutputError.Timeout;
                     break;
                 case SocketError.HostUnreachable:
-                    SetError(TcpOutputError.HostUnreachable, "Host Unreachable");
+                    Error = TcpOutputError.HostUnreachable;
                     break;
                 case SocketError.NetworkUnreachable:
-                    SetError(TcpOutputError.NetworkUnreachable, "Network Unreachable");
+                    Error = TcpOutputError.NetworkUnreachable;
                     break;
                 case SocketError.InvalidArgument:
-                    SetError(TcpOutputError.InvalidArgument, "Invalid Argument");
+                    Error = TcpOutputError.InvalidArgument;
                     break;
                 case SocketError.AccessDenied:
-                    SetError(TcpOutputError.AccessDenied, "Access Denied");
+                    Error = TcpOutputError.AccessDenied;
                     break;
             }
+        }
+
+        /// <summary>
+        /// Starts the output
+        /// </summary>
+        /// <param name="stoppingToken"></param>
+        public void Start(CancellationToken stoppingToken = default)
+        {
+            if (Status == TcpOutputStatus.Connected || Status == TcpOutputStatus.Connecting)
+            {
+                return;
+            }
+
+            Status = TcpOutputStatus.Disconnected;
+            Error = TcpOutputError.NoError;
+            _ = ConnectAsync(stoppingToken);
+        }
+
+        /// <summary>
+        /// Stops the output
+        /// </summary>
+        public void Stop()
+        {
+            if (Status == TcpOutputStatus.Stopped)
+            {
+                return;
+            }
+
+            Status = TcpOutputStatus.Stopped;
+            Error = TcpOutputError.NoError;
+            _client.Close();
         }
 
         /// <summary>
@@ -163,8 +254,8 @@ namespace AirRoute.ADSB
         /// </summary>
         public void Disconnect()
         {
-            SetStatus(TcpOutputStatus.Disconnected, "Disconnected");
-            SetError(TcpOutputError.NoError, "No Error");
+            Status = TcpOutputStatus.Disconnected;
+            Error = TcpOutputError.NoError;
             _client.Close();
         }
 
@@ -177,6 +268,11 @@ namespace AirRoute.ADSB
         /// <returns></returns>
         public async Task WriteAsync(byte[] buffer, int length, CancellationToken stoppingToken = default)
         {
+            if (IsStopped)
+            {
+                return;
+            }
+
             try
             {
                 var stream = _client.GetStream();
@@ -186,42 +282,24 @@ namespace AirRoute.ADSB
             catch (SocketException ex)
             {
                 _logger.LogError($"{ex.SocketErrorCode}");
-                SetStatus(TcpOutputStatus.Disconnected, "Disconnected");
-                await ConnectAsync();
+                Status = TcpOutputStatus.Disconnected;
+                await ConnectAsync(stoppingToken);
             }
-            catch (IOException ex)
+            catch (IOException)
             {
-                SetError(TcpOutputError.IOError, "Remotehost closed stream");
-                SetStatus(TcpOutputStatus.Disconnected, "Disonnected");
+                Error = TcpOutputError.IOError;
+                Status = TcpOutputStatus.Disconnected;
                 await ConnectAsync(stoppingToken);
             }
         }
 
-        /// <summary>
-        /// Set Status and StatusMessage
-        /// </summary>
-        /// <param name="status"></param>
-        /// <param name="statusMessage"></param>
-        private void SetStatus(TcpOutputStatus status, string statusMessage)
-        {
-            Status = status;
-            StatusMessage = statusMessage;
-        }
-
-        /// <summary>
-        /// Set Error and ErrorMessage
-        /// </summary>
-        /// <param name="error"></param>
-        /// <param name="errorMessage"></param>
-        private void SetError(TcpOutputError error, string errorMessage)
-        {
-            Error = error;
-            ErrorMessage = errorMessage;
-        }
-
         public void Dispose()
         {
+            if(!_disposed)
+            {
             _client.Close();
+                _disposed = true;
+            }
         }
 
         public override string ToString() => $"{Hostname}:{Port}";

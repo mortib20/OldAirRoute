@@ -4,82 +4,117 @@ using System.Text.Json;
 
 namespace AirRoute.ADSB
 {
-    public class RouterManagerConfig
-    {
-        public RouterManagerConfigInputItem Input { get; set; }
-        public List<RouterManagerConfigOutputItem> Outputs { get; set; }
-    }
-
-    public class RouterManagerConfigOutputItem
-    {
-        public string Hostname { get; set; }
-        public int Port { get; set; }
-    }
-
-    public class RouterManagerConfigInputItem
-    {
-        public string Address { get; set; }
-        public int Port { get; set; }
-    }
-
-
     public class RouterManager
     {
         private readonly ILoggerFactory _loggerFactory;
-        private readonly ILogger<RouterManager> _logger;
-
-        public List<TcpOutput> Outputs { get; private set; }
-        public TcpInput Input { get; private set; }
+        private readonly ILogger _logger;
+        private readonly List<TcpOutput> _outputs;
+        private readonly TcpInput _input;
 
         public RouterManager(ILoggerFactory loggerFactory)
         {
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<RouterManager>();
-            Outputs = new();
-            Input = new(loggerFactory, IPAddress.Any, 30004);
-            ReadFromConfig();
+            _input = new(loggerFactory, IPAddress.Any, 30004);
+            _outputs = new();
         }
 
-        public void AddOutput(string hostname, int port, bool connect = false, CancellationToken stoppingToken = default)
+        public List<TcpOutput> Outputs => _outputs;
+        public TcpInput Input => _input;
+
+        public void AddOutput(string hostname, int port)
         {
             var output = new TcpOutput(_loggerFactory, hostname, port);
 
-            Outputs.Add(output);
-            _logger.LogInformation($"Added {output} output");
-
-            if (connect)
+            if (_outputs.Contains(output))
             {
-                _ = output.ConnectAsync(stoppingToken);
+                Error("Output not added, already added");
+                return;
+            }
+
+            Info($"Added {output}");
+            _outputs.Add(output);
+        }
+
+        public void RemoveOutput(TcpOutput output)
+        {
+            var found = Outputs.Find(o => o == output);
+
+            if (found is not null)
+            {
+                Outputs.Remove(found);
+            }
+
+            Info($"Removed {output}");
+        }
+
+        public void RemoveOutputAt()
+        {
+
+        }
+
+        /// <summary>
+        /// Starts all disconnected outputs
+        /// </summary>
+        public void StartAll()
+        {
+            Info("Starting all disconnected outputs");
+
+            Outputs.FindAll(s => s.Status == TcpOutputStatus.Disconnected)
+            .ToList()
+            .ForEach(output => output.Start());
+        }
+
+        /// <summary>
+        /// Write buffer of length to all connected outputs
+        /// </summary>
+        /// <param name="buffer">Buffer to write</param>
+        /// <param name="length">Length to write</param>
+        /// <param name="stoppingToken"></param>
+        public void WriteAll(byte[] buffer, int length, CancellationToken stoppingToken) =>
+            Outputs.FindAll(s => !s.IsStopped || s.IsDisconnected)
+            .ToList()
+            .ForEach(output => _ = output.WriteAsync(buffer, length, stoppingToken));
+
+        /// <summary>
+        /// Disconnects all connected outputs
+        /// </summary>
+        public void DisconnectAll()
+        {
+            Info("Disconnecting all connected clients");
+
+            Outputs.FindAll(s => s.Status == TcpOutputStatus.Connected)
+            .ToList()
+            .ForEach(output => output.Disconnect());
+        }
+
+        /// <summary>
+        /// Stops output if in list
+        /// </summary>
+        /// <param name="output"></param>
+        public void StopOutput(TcpOutput output)
+        {
+            var found = Outputs.Find(m => m == output);
+
+            if (found is not null)
+            {
+                Info($"Stopping {found}");
+                found.Stop();
             }
         }
 
-        private void ReadFromConfig()
+        public void StartOutput(TcpOutput output)
         {
-            var text = File.ReadAllText("routerconfig.json"); // Changes this to be better (I dont know currently) lol
-            var config = JsonSerializer.Deserialize<RouterManagerConfig>(text);
+            var found = Outputs.Find(m => m == output);
 
-            Input = new(_loggerFactory, IPAddress.Parse(config.Input.Address), config.Input.Port); // Add checks for IPAddress, Port etc
-            config.Outputs.ForEach(output => AddOutput(output.Hostname, output.Port, false));
+            if(found is not null)
+            {
+                Info($"Startin manually stopped {found}");
+                found.Start();
+            }
         }
 
-        private void WriteToConfig()
-        {
-            var config = new RouterManagerConfig
-            {
-                Outputs = new(),
-                Input = new()
-            };
-
-            config.Input = new() { Address = Input.Address.ToString(), Port = Input.Port };
-            Outputs.ForEach(output => config.Outputs.Add(new() { Hostname = output.Hostname, Port = output.Port }));
-
-            var options = new JsonSerializerOptions()
-            {
-                WriteIndented = true
-            };
-            var text = JsonSerializer.Serialize(config);
-
-            File.WriteAllText("routerconfig.json", text);
-        }
+        private void Info(string text) => _logger.LogInformation(text);
+        private void Error(string text) => _logger.LogError(text);
     }
 }

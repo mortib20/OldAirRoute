@@ -1,0 +1,12 @@
+﻿.outputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+
+.output, .input {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5em;
+    border: 1px solid black;
+}

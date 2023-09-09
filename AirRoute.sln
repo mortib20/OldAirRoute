@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.6.33829.357
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ADSB", "ADSB\ADSB.csproj", "{049801AD-D0ED-47D3-9CB8-65AAD6CC28F2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ADSB", "ADSB\ADSB.csproj", "{049801AD-D0ED-47D3-9CB8-65AAD6CC28F2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Main", "Main\Main.csproj", "{9E64E1D9-C39D-40E3-9553-A168FA15103A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Main", "Main\Main.csproj", "{9E64E1D9-C39D-40E3-9553-A168FA15103A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

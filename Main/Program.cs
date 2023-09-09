@@ -1,9 +1,6 @@
 using AirRoute.ADSB;
-using Main.Data;
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 
-namespace Main
+namespace AirRoute
 {
     public class Program
     {
@@ -15,7 +12,8 @@ namespace Main
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
             builder.Services.AddSingleton<RouterManager>();
-            builder.Services.AddHostedService<RouterManagerService>();
+            builder.Services.AddHostedService<RouterService>();
+
 
             var app = builder.Build();
 
@@ -24,10 +22,10 @@ namespace Main
             {
                 app.UseExceptionHandler("/Error");
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-                app.UseHsts();
+                //app.UseHsts();
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
 
             app.UseStaticFiles();
 

@@ -1,44 +1,21 @@
 ﻿@page "/"
-@using AirRoute.ADSB;
+@using ADSB;
 @using System.Timers;
 @inject RouterManager routerManager;
-
-<PageTitle>Index</PageTitle>
-
-<table class="table">
-    <thead>
-        <tr>
-            <td>Hostname</td>
-            <td>Port</td>
-            <td>Status</td>
-            <td>Error</td>
-        </tr>
-    </thead>
-    @foreach (var output in routerManager.Outputs)
-    {
-        <tr>
-            <td>@output.Hostname</td>
-            <td>@output.Port</td>
-            <td>@output.StatusMessage</td>
-            <td title="@output.ErrorMessage">@output.Error</td>
-        </tr>
-    }
-</table>
-
-<button class="btn btn-danger" @onclick="Add">Add</button>
-
 @code {
-    Timer timer;
+    Timer timer = new(TimeSpan.FromSeconds(2));
+    List<TcpOutput> Outputs { get; set; }
+    TcpInput Input { get; set; }
 
     protected override void OnInitialized()
     {
-        timer = new();
-        timer.Interval = TimeSpan.FromSeconds(10).TotalMilliseconds;
-        timer.Elapsed += RefreshEvent;
+        Outputs = routerManager.Outputs;
+        Input = routerManager.Input;
+        timer.Elapsed += Elapsed;
         timer.Start();
     }
 
-    private void RefreshEvent(object? source, ElapsedEventArgs e)
+    private void Elapsed(object? sender, ElapsedEventArgs e)
     {
         InvokeAsync(() =>
         {
@@ -46,9 +23,59 @@
         });
     }
 
-    private void Add()
-    {
-        routerManager.AddOutput("192.168.168.3", 3277, true);
-    }
-
+    private void StopOutput(TcpOutput output) => routerManager.StopOutput(output);
+    private void StartOutput(TcpOutput output) => routerManager.StartOutput(output);
 }
+
+<PageTitle>Status</PageTitle>
+
+<h3>Input:</h3>
+<div class="input">
+    <h4>@Input</h4>
+    @switch (Input.State)
+    {
+        case TcpInputState.Started:
+            <p class="text-success">Started</p>
+            break;
+        case TcpInputState.Stopped:
+            <p class="text-info">Started</p>
+            break;
+        case TcpInputState.Error:
+            <p class="text-danger">Started</p>
+            break;
+    }
+</div>
+
+<h3>Outputs:</h3>
+<div class="outputs">
+    @foreach (var output in Outputs)
+    {
+        <div class="output">
+            <h4 style="font-size: 100%">@output</h4>
+            @switch (output.Status)
+            {
+                case TcpOutputStatus.Connected:
+                    <p class="text-success">Connected</p>
+                    break;
+                case TcpOutputStatus.Disconnected:
+                    <p class="text-danger">Disconnected</p>
+                    break;
+                case TcpOutputStatus.Connecting:
+                    <p class="text-warning">Connecting..</p>
+                    break;
+                case TcpOutputStatus.Stopped:
+                    <p class="text-info">Stopped</p>
+                    break;
+            }
+
+            @if (output.Status == TcpOutputStatus.Stopped)
+            {
+                <button class="btn-success" @onclick="(() => StartOutput(output))">Start</button>
+            }
+            else
+            {
+                <button class="btn-danger" @onclick="(() => StopOutput(output))">Stop</button>
+            }
+        </div>
+    }
+</div>
