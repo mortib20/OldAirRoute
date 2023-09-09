@@ -16,10 +16,10 @@ namespace AirRoute.ADSB
         {
             _routerManager.Outputs.ForEach(output => _ = output.ConnectAsync(stoppingToken));
 
-            await HandleConnections(stoppingToken);
+            await HandleConnectionsAsync(stoppingToken);
         }
 
-        private async Task HandleConnections(CancellationToken stoppingToken)
+        private async Task HandleConnectionsAsync(CancellationToken stoppingToken)
         {
             try
             {
@@ -32,14 +32,19 @@ namespace AirRoute.ADSB
             catch (OperationCanceledException) { }
         }
 
-        private void WriteToOutputs(byte[] buffer, int length, CancellationToken stoppingToken)
+        private void WriteToOutputsAsync(byte[] buffer, int length, CancellationToken stoppingToken)
         {
-            _routerManager.Outputs.ForEach(output => _ = output.WriteAsync(buffer, length, stoppingToken));
+            //_routerManager.Outputs.FindAll(output => output.State == TcpOutputState.Disconnected)
+            //    .ForEach(output => _ = output.ConnectAsync(stoppingToken));
+
+            _routerManager.Outputs.FindAll(output => output.Status == TcpOutputStatus.Connected)
+                .ForEach(output => _ = output.WriteAsync(buffer, length, stoppingToken));
         }
 
         private void DisconnectOutputs()
         {
-            _routerManager.Outputs.ForEach(output => output.Disconnect());
+            _routerManager.Outputs.FindAll(output => output.Status == TcpOutputStatus.Connected)
+                .ForEach(output => output.Disconnect());
         }
 
         private async Task Input_HandleClient(TcpClient client, NetworkStream stream, CancellationToken stoppingToken = default)
@@ -56,7 +61,7 @@ namespace AirRoute.ADSB
                         break;
                     }
 
-                    WriteToOutputs(buffer, length, stoppingToken);
+                    WriteToOutputsAsync(buffer, length, stoppingToken);
                 }
             }
             catch (OperationCanceledException) { }

@@ -10,8 +10,8 @@
         <tr>
             <td>Hostname</td>
             <td>Port</td>
-            <td>State</td>
-            <td>Controls</td>
+            <td>Status</td>
+            <td>Error</td>
         </tr>
     </thead>
     @foreach (var output in routerManager.Outputs)
@@ -19,8 +19,8 @@
         <tr>
             <td>@output.Hostname</td>
             <td>@output.Port</td>
-            <td>@output.State</td>
-            <td>LOL</td>
+            <td>@output.StatusMessage</td>
+            <td title="@output.ErrorMessage">@output.Error</td>
         </tr>
     }
 </table>
@@ -33,17 +33,22 @@
     protected override void OnInitialized()
     {
         timer = new();
-        timer.Elapsed = RefreshEvent;
+        timer.Interval = TimeSpan.FromSeconds(10).TotalMilliseconds;
+        timer.Elapsed += RefreshEvent;
+        timer.Start();
     }
 
-    private void RefreshEvent(object sender)
+    private void RefreshEvent(object? source, ElapsedEventArgs e)
     {
-        
+        InvokeAsync(() =>
+        {
+            StateHasChanged();
+        });
     }
 
     private void Add()
     {
-        routerManager.AddOutput("192.168.168.6", 30004);
+        routerManager.AddOutput("192.168.168.3", 3277, true);
     }
 
 }

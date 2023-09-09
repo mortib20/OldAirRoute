@@ -9,7 +9,7 @@ namespace AirRoute.ADSB
     public enum TcpInputState
     {
         Stopped,
-        Listening,
+        Started,
         Error
     }
 
@@ -47,7 +47,7 @@ namespace AirRoute.ADSB
             }
 
             _logger.LogInformation("Started listening");
-            State = TcpInputState.Listening;
+            State = TcpInputState.Started;
         }
 
         /// <summary>

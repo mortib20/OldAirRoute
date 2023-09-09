@@ -40,11 +40,17 @@ namespace AirRoute.ADSB
             ReadFromConfig();
         }
 
-        public void AddOutput(string hostname, int port)
+        public void AddOutput(string hostname, int port, bool connect = false, CancellationToken stoppingToken = default)
         {
             var output = new TcpOutput(_loggerFactory, hostname, port);
+
             Outputs.Add(output);
             _logger.LogInformation($"Added {output} output");
+
+            if (connect)
+            {
+                _ = output.ConnectAsync(stoppingToken);
+            }
         }
 
         private void ReadFromConfig()
@@ -53,7 +59,7 @@ namespace AirRoute.ADSB
             var config = JsonSerializer.Deserialize<RouterManagerConfig>(text);
 
             Input = new(_loggerFactory, IPAddress.Parse(config.Input.Address), config.Input.Port); // Add checks for IPAddress, Port etc
-            config.Outputs.ForEach(output => AddOutput(output.Hostname, output.Port));
+            config.Outputs.ForEach(output => AddOutput(output.Hostname, output.Port, false));
         }
 
         private void WriteToConfig()
