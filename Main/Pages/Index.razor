@@ -73,7 +73,7 @@
                     break;
             }
 
-            @if (output.IsDisconnected || output.Status == TcpOutputStatus.Disconnected)
+            @if (!output.IsDisconnected || output.Status == TcpOutputStatus.Stopped)
             {
                 <button class="btn-success" @onclick="(() => StartOutput(output))">Start</button>
             }
