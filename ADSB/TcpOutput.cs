@@ -183,6 +183,7 @@ namespace AirRoute.ADSB
 
             _logger.LogInformation($"Failed to connect after {connectionTries}");
             Status = TcpOutputStatus.Disconnected;
+            Error = TcpOutputError.Timeout;
             return false;
         }
 

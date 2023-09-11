@@ -74,7 +74,7 @@ namespace AirRoute.ADSB
         public void WriteAll(byte[] buffer, int length, CancellationToken stoppingToken) =>
             Outputs.FindAll(s => !s.IsStopped || s.IsDisconnected)
             .ToList()
-            .ForEach(output => _ = output.WriteAsync(buffer, length, stoppingToken));
+            .ForEach(async output => await output.WriteAsync(buffer, length, stoppingToken));
 
         /// <summary>
         /// Disconnects all connected outputs
@@ -103,13 +103,17 @@ namespace AirRoute.ADSB
             }
         }
 
+        /// <summary>
+        /// Starts a output if in list
+        /// </summary>
+        /// <param name="output"></param>
         public void StartOutput(TcpOutput output)
         {
             var found = Outputs.Find(m => m == output);
 
             if(found is not null)
             {
-                Info($"Startin manually stopped {found}");
+                Info($"Starting manually stopped {found}");
                 found.Start();
             }
         }

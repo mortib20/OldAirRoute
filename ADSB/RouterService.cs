@@ -7,13 +7,13 @@ namespace AirRoute.ADSB
     {
         private RouterManager RouterManager { get; }
         private TcpInput Input { get; }
-        private List<TcpOutput> Outputs { get; }
+        //private List<TcpOutput> Outputs { get; }
 
         public RouterService(RouterManager routerManager)
         {
             RouterManager = routerManager;
             Input = RouterManager.Input;
-            Outputs = RouterManager.Outputs;
+            //Outputs = RouterManager.Outputs;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
