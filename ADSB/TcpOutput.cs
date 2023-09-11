@@ -268,7 +268,7 @@ namespace AirRoute.ADSB
         /// <returns></returns>
         public async Task WriteAsync(byte[] buffer, int length, CancellationToken stoppingToken = default)
         {
-            if (IsStopped)
+            if (IsStopped || IsDisconnected)
             {
                 return;
             }

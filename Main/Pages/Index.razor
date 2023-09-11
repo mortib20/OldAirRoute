@@ -32,16 +32,17 @@
 <h3>Input:</h3>
 <div class="input">
     <h4>@Input</h4>
+    <p>@Input.ConnectedClient</p>
     @switch (Input.State)
     {
         case TcpInputState.Started:
             <p class="text-success">Started</p>
             break;
         case TcpInputState.Stopped:
-            <p class="text-info">Started</p>
+            <p class="text-info">Stopped</p>
             break;
         case TcpInputState.Error:
-            <p class="text-danger">Started</p>
+            <p class="text-danger">Error</p>
             break;
     }
 </div>
@@ -52,6 +53,10 @@
     {
         <div class="output">
             <h4 style="font-size: 100%">@output</h4>
+            @if(output.HasError)
+            {
+                <p>@output.ErrorMessage</p>
+            }
             @switch (output.Status)
             {
                 case TcpOutputStatus.Connected:

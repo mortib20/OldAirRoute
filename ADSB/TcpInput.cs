@@ -21,6 +21,7 @@ namespace AirRoute.ADSB
         public TcpInputState State { get; private set; }
         public IPAddress Address { get; }
         public int Port { get; }
+        public string ConnectedClient { get; private set; } = "No client connected";
 
         public TcpInput(ILoggerFactory loggerFactory, IPAddress address, int port)
         {
@@ -75,7 +76,9 @@ namespace AirRoute.ADSB
                     using var stream = client.GetStream();
 
                     _logger.LogInformation($"{client.Client.RemoteEndPoint} connected");
+                    ConnectedClient = $"{client.Client.RemoteEndPoint}";
                     await handleClient(client, stream, stoppingToken);
+                    ConnectedClient = $"No client connected";
                     _logger.LogInformation($"{client.Client.RemoteEndPoint} disconnected");
                 }
             }
