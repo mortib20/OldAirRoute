@@ -285,10 +285,11 @@ namespace AirRoute.ADSB
                 Status = TcpOutputStatus.Disconnected;
                 await ConnectAsync(stoppingToken);
             }
-            catch (IOException)
+            catch (IOException ex)
             {
                 Error = TcpOutputError.IOError;
                 Status = TcpOutputStatus.Disconnected;
+                _logger.LogError(ex.Message);
                 await ConnectAsync(stoppingToken);
             }
         }
