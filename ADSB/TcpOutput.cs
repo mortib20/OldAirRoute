@@ -157,6 +157,14 @@ namespace AirRoute.ADSB
                 await stream.WriteAsync(buffer.AsMemory(0, length), stoppingToken);
             }
             catch (OperationCanceledException) { }
+            catch(IOException ex)
+            {
+                _logger.LogError(ex.Message);
+                Error = SocketError.IOPending;
+                Stop();
+                await Task.Delay(10000, stoppingToken);
+                await Start(stoppingToken);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex.Message);
