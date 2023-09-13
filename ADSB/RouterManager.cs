@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Net;
-using System.Text.Json;
 
 namespace AirRoute.ADSB
 {
@@ -22,6 +21,11 @@ namespace AirRoute.ADSB
         public List<TcpOutput> Outputs => _outputs;
         public TcpInput Input => _input;
 
+        /// <summary>
+        /// Adds an output
+        /// </summary>
+        /// <param name="hostname"></param>
+        /// <param name="port"></param>
         public void AddOutput(string hostname, int port)
         {
             var output = new TcpOutput(_loggerFactory, hostname, port);
@@ -36,6 +40,10 @@ namespace AirRoute.ADSB
             _outputs.Add(output);
         }
 
+        /// <summary>
+        /// Removes an output
+        /// </summary>
+        /// <param name="output"></param>
         public void RemoveOutput(TcpOutput output)
         {
             var found = Outputs.Find(o => o == output);
@@ -48,11 +56,6 @@ namespace AirRoute.ADSB
             Info($"Removed {output}");
         }
 
-        public void RemoveOutputAt()
-        {
-
-        }
-
         /// <summary>
         /// Starts all disconnected outputs
         /// </summary>
@@ -62,7 +65,7 @@ namespace AirRoute.ADSB
 
             Outputs.FindAll(s => s.Status == TcpOutputStatus.Disconnected)
             .ToList()
-            .ForEach(output => output.Start());
+            .ForEach(output => _ = output.Start());
         }
 
         /// <summary>
@@ -72,9 +75,7 @@ namespace AirRoute.ADSB
         /// <param name="length">Length to write</param>
         /// <param name="stoppingToken"></param>
         public void WriteAll(byte[] buffer, int length, CancellationToken stoppingToken) =>
-            Outputs.FindAll(s => !s.IsStopped || s.IsDisconnected)
-            .ToList()
-            .ForEach(output => _ = output.WriteAsync(buffer, length, stoppingToken));
+            Outputs.ForEach(output => _ = output.WriteAsync(buffer, length, stoppingToken));
 
         /// <summary>
         /// Disconnects all connected outputs
@@ -83,7 +84,7 @@ namespace AirRoute.ADSB
         {
             Info("Disconnecting all connected clients");
 
-            Outputs.FindAll(s => s.Status == TcpOutputStatus.Connected)
+            Outputs.FindAll(s => s.Connected || s.Connecting)
             .ToList()
             .ForEach(output => output.Disconnect());
         }
@@ -114,7 +115,7 @@ namespace AirRoute.ADSB
             if (found is not null)
             {
                 Info($"Starting manually stopped {found}");
-                found.Start();
+                _ = found.Start();
             }
         }
 

@@ -53,9 +53,9 @@
     {
         <div class="output">
             <h4 style="font-size: 100%">@output</h4>
-            @if(output.HasError)
+            @if (output.HasError)
             {
-                <p>@output.ErrorMessage</p>
+                <p>@output.Error</p>
             }
             @switch (output.Status)
             {
@@ -73,13 +73,13 @@
                     break;
             }
 
-            @if (!output.IsDisconnected || output.Status == TcpOutputStatus.Stopped)
+            @if (output.Connected)
             {
-                <button class="btn-success" @onclick="(() => StartOutput(output))">Start</button>
+                <button class="btn-danger" @onclick="(() => StopOutput(output))">Stop</button>
             }
             else
             {
-                <button class="btn-danger" @onclick="(() => StopOutput(output))">Stop</button>
+                <button class="btn-success" @onclick="(() => StartOutput(output))">Start</button>
             }
         </div>
     }
